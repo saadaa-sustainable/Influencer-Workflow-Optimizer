@@ -9,11 +9,23 @@
   <meta http-equiv="Expires" content="0">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // Instant session check BEFORE paint - prevents login flash
+    (function() {
+      var cached = sessionStorage.getItem('ch_auth_v3');
+      if (cached) {
+        document.documentElement.classList.add('has-session');
+      }
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: #F5F1EC; }
     #gas-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; z-index: 9999; }
     #login-screen { display: flex; width: 100vw; height: 100vh; z-index: 1; }
+    /* Hide login if session exists - prevents flash */
+    html.has-session #login-screen { display: none; }
+    html.has-session #gas-frame { display: block; }
     .login-left {
       flex: 0 0 52%; background: #000;
       display: flex; flex-direction: column; justify-content: space-between;
@@ -237,11 +249,13 @@
     // Listen for logout message from iframe
     window.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'logout') {
+        // Clear ALL storage to prevent auto re-login
         sessionStorage.removeItem(SESSION_KEY);
-        sb.auth.signOut();
-        document.getElementById('gas-frame').style.display = 'none';
-        document.getElementById('login-screen').style.display = 'flex';
-        appLaunched = false;
+        localStorage.removeItem('sb-' + SB_URL.split('//')[1].split('.')[0] + '-auth-token');
+        sb.auth.signOut().then(function() {
+          // Force reload to clear any cached state
+          window.location.reload();
+        });
       }
     });
   </script>
