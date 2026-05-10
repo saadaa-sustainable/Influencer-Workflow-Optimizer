@@ -139,17 +139,16 @@
 
     function tabFromHash() {
       var match = window.location.hash.match(/^#tab=([^&]+)/);
-      var tab = match ? decodeURIComponent(match[1]) : '';
-      return tab === 'accounts' ? 'dashboard' : tab;
+      return match ? decodeURIComponent(match[1]) : '';
     }
 
     function tabUrl(tabId) {
-      if (tabId === 'accounts') tabId = 'dashboard';
       return window.location.pathname + '#tab=' + encodeURIComponent(tabId);
     }
 
     function sendTabToFrame(tabId) {
       var frame = document.getElementById('gas-frame');
+      tabId = tabId || 'dashboard';
       if (frame && frame.contentWindow && tabId) {
         frame.contentWindow.postMessage({ type: 'navigate-tab', tabId: tabId }, '*');
       }
@@ -164,6 +163,10 @@
     function clearAuthState() {
       sessionStorage.removeItem(SESSION_KEY);
       sessionStorage.setItem(LOGOUT_KEY, '1');
+      clearSupabaseAuthCache();
+    }
+
+    function clearSupabaseAuthCache() {
       try {
         Object.keys(localStorage).forEach(function(key) {
           if (key.indexOf('sb-') === 0 && key.indexOf('-auth-token') > -1) {
@@ -194,8 +197,42 @@
       document.getElementById('btn-label').textContent = on ? 'Signing in...' : 'Continue with Google';
     }
 
+    function getAccessRow(email) {
+      return fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
+        method: 'POST',
+        headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_email: email })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(rows) {
+        return Array.isArray(rows) ? rows[0] : rows;
+      });
+    }
+
+    var appLaunched = false;
+    var launchedEmail = '';
+
+    function forceLogout(reason) {
+      clearAuthState();
+      appLaunched = false;
+      launchedEmail = '';
+      document.documentElement.classList.remove('has-session');
+      history.replaceState(null, '', window.location.pathname);
+      var frame = document.getElementById('gas-frame');
+      frame.removeAttribute('src');
+      frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; z-index: 9999;';
+      document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+      setLoading(false);
+      if (reason) showError(reason);
+      sb.auth.signOut().then(function() {
+        sessionStorage.removeItem(LOGOUT_KEY);
+      });
+    }
+
     function launchApp(email, role) {
       console.log('[CreatorHub] launchApp called:', email, role);
+      appLaunched = true;
+      launchedEmail = email;
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
       if (window.location.hash.indexOf('access_token') > -1 || window.location.search.indexOf('code=') > -1) {
         cleanAuthCallbackUrl();
@@ -210,7 +247,7 @@
       loginScreen.style.cssText = 'display: none !important;';
 
       // Set iframe src and show it
-      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role);
+      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role) + '&tab=' + encodeURIComponent(tabFromHash() || 'dashboard');
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
       frame.onload = function() { sendTabToFrame(tabFromHash()); };
 
@@ -220,14 +257,8 @@
 
     function verifyAndLaunch(email) {
       setLoading(true);
-      fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
-        method: 'POST',
-        headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p_email: email })
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(rows) {
-        var row = Array.isArray(rows) ? rows[0] : rows;
+      getAccessRow(email)
+      .then(function(row) {
         if (row && row.email) {
           launchApp(email, row.role || '');
         } else {
@@ -242,14 +273,20 @@
       });
     }
 
-    // Track if app has been launched to prevent double-launch
-    var appLaunched = false;
-
     function safeLaunch(email, role) {
       sessionStorage.removeItem(LOGOUT_KEY);
       if (appLaunched) return;
-      appLaunched = true;
-      launchApp(email, role);
+      getAccessRow(email).then(function(row) {
+        if (row && row.email) {
+          appLaunched = true;
+          launchApp(email, row.role || role || '');
+        } else {
+          forceLogout('Access revoked. ' + email + ' is no longer authorized.');
+        }
+      }).catch(function() {
+        appLaunched = true;
+        launchApp(email, role || '');
+      });
     }
 
     // Check if this is an OAuth callback (has access_token in hash)
@@ -298,11 +335,16 @@
       if (this.disabled) return;
       hideError();
       setLoading(true);
-      sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in', prompt: 'select_account' } }
-      }).then(function(r) {
-        if (r.error) { setLoading(false); showError('OAuth error: ' + r.error.message); }
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(LOGOUT_KEY);
+      clearSupabaseAuthCache();
+      sb.auth.signOut().catch(function() {}).finally(function() {
+        sb.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in', prompt: 'select_account' } }
+        }).then(function(r) {
+          if (r.error) { setLoading(false); showError('OAuth error: ' + r.error.message); }
+        });
       });
     });
 
@@ -317,24 +359,22 @@
         return;
       }
       if (e.data && e.data.type === 'logout') {
-        // Clear ALL storage to prevent auto re-login
-        clearAuthState();
-        appLaunched = false;
-        document.documentElement.classList.remove('has-session');
-        history.replaceState(null, '', window.location.pathname);
-        document.getElementById('gas-frame').removeAttribute('src');
-        document.getElementById('gas-frame').style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; z-index: 9999;';
-        document.getElementById('login-screen').style.cssText = 'display: flex !important;';
-        setLoading(false);
-        sb.auth.signOut().then(function() {
-          sessionStorage.removeItem(LOGOUT_KEY);
-        });
+        forceLogout(e.data.reason || '');
       }
     });
 
     window.addEventListener('popstate', function() {
-      sendTabToFrame(tabFromHash());
+      sendTabToFrame(tabFromHash() || 'dashboard');
     });
+
+    window.setInterval(function() {
+      if (!appLaunched || !launchedEmail) return;
+      getAccessRow(launchedEmail).then(function(row) {
+        if (!row || !row.email) {
+          forceLogout('Access revoked. Please contact a Global Admin.');
+        }
+      }).catch(function() {});
+    }, 5000);
   </script>
 </body>
 </html>
