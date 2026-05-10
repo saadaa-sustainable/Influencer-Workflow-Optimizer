@@ -233,6 +233,17 @@
         if (r.error) { setLoading(false); showError('OAuth error: ' + r.error.message); }
       });
     });
+
+    // Listen for logout message from iframe
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'logout') {
+        sessionStorage.removeItem(SESSION_KEY);
+        sb.auth.signOut();
+        document.getElementById('gas-frame').style.display = 'none';
+        document.getElementById('login-screen').style.display = 'flex';
+        appLaunched = false;
+      }
+    });
   </script>
 </body>
 </html>
