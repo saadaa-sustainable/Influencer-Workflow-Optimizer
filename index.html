@@ -166,32 +166,41 @@
       });
     }
 
-    // Handle OAuth callback FIRST (before cache check)
-    var authHandled = false;
+    // Track if app has been launched to prevent double-launch
+    var appLaunched = false;
+
+    function safeLaunch(email, role) {
+      if (appLaunched) return;
+      appLaunched = true;
+      launchApp(email, role);
+    }
 
     // Check if this is an OAuth callback (has access_token in hash)
     var isOAuthCallback = window.location.hash.includes('access_token');
 
-    sb.auth.onAuthStateChange(function(event, session) {
-      if (event === 'SIGNED_OUT') { authHandled = false; return; }
-      if (session && session.user && session.user.email && !authHandled) {
-        authHandled = true;
-        // Clear hash to prevent re-processing on refresh
-        if (window.location.hash) history.replaceState(null, '', window.location.pathname);
-        verifyAndLaunch(session.user.email);
-      }
-    });
-
-    // If NOT an OAuth callback, check cached session
+    // PRIORITY 1: Check cached session FIRST (instant restore)
     if (!isOAuthCallback) {
       var cached = sessionStorage.getItem(SESSION_KEY);
       if (cached) {
         try {
           var c = JSON.parse(cached);
-          if (c.email) launchApp(c.email, c.role || '');
+          if (c.email) {
+            safeLaunch(c.email, c.role || '');
+          }
         } catch(e) {}
       }
     }
+
+    // PRIORITY 2: Handle OAuth callback from Supabase
+    sb.auth.onAuthStateChange(function(event, session) {
+      if (appLaunched) return; // Already launched from cache
+      if (event === 'SIGNED_OUT') return;
+      if (session && session.user && session.user.email) {
+        // Clear hash to prevent re-processing on refresh
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+        verifyAndLaunch(session.user.email);
+      }
+    });
 
     // Sign in button
     document.getElementById('signin-btn').addEventListener('click', function() {
