@@ -160,15 +160,14 @@
     </div>
   </div>
 
-  <iframe id="gas-frame"
-    src="https://script.google.com/macros/s/AKfycbwCOkaGFOzBAd9Bki58RNk9_qPmmpGrNCJMteknBt3dEcDzeba8LDXP1NR0h7irJFvF/exec"
-    allowfullscreen="true">
-  </iframe>
+  <!-- src set dynamically after auth so email param is included -->
+  <iframe id="gas-frame" allowfullscreen="true"></iframe>
 
   <script>
     var SB_URL  = 'https://xynyvbagcudjrzklwnqp.supabase.co';
     var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bnl2YmFnY3VkanJ6a2x3bnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjY4MjcsImV4cCI6MjA5MzkwMjgyN30.1Yuf1xytcp_tGWnkCVEQZU6DixQJgnIZJP2q9P8r8NU';
     var REDIRECT = 'https://saadaa-sustainable.github.io/Influencer-Workflow-Optimizer/';
+    var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwCOkaGFOzBAd9Bki58RNk9_qPmmpGrNCJMteknBt3dEcDzeba8LDXP1NR0h7irJFvF/exec';
 
     var sb = supabase.createClient(SB_URL, SB_ANON, {
       auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true }
@@ -218,7 +217,10 @@
       btn.disabled = true;
       btn.innerHTML = SPINNER_HTML + '<span>' + label + '</span>';
     }
-    function launchApp() {
+
+    /* Set iframe src with email param, then show it — GAS reads email from URL, skips OAuth dialog */
+    function launchApp(email) {
+      document.getElementById('gas-frame').src = GAS_BASE + '?email=' + encodeURIComponent(email);
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('gas-frame').style.display = 'block';
     }
@@ -239,7 +241,7 @@
           showError('Access Denied. ' + email + ' is not authorized. Contact your admin.');
           sb.auth.signOut();
         } else {
-          launchApp();
+          launchApp(email);
         }
       })
       .catch(function(){
@@ -256,23 +258,9 @@
       }
     }
 
-    /*
-     * Supabase v2 fires these events:
-     *   INITIAL_SESSION  — on page load, if a session exists in localStorage or URL hash
-     *   SIGNED_IN        — after fresh OAuth redirect
-     *   TOKEN_REFRESHED  — when token auto-refreshes
-     *   SIGNED_OUT       — after signOut()
-     *
-     * We handle all session-bearing events so returning visits work correctly.
-     */
     sb.auth.onAuthStateChange(function(event, session) {
-      if (event === 'SIGNED_OUT') {
-        authHandled = false;
-        return;
-      }
-      if (session && session.user) {
-        handleSession(session);
-      }
+      if (event === 'SIGNED_OUT') { authHandled = false; return; }
+      if (session && session.user) { handleSession(session); }
     });
 
     /* Sign-in button */
