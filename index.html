@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CreatorHub</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: #F5F1EC; }
-
     #gas-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; }
     #login-screen { display: flex; width: 100vw; height: 100vh; }
-
     .login-left {
       flex: 0 0 52%; background: #000;
       display: flex; flex-direction: column; justify-content: space-between;
@@ -39,47 +38,21 @@
     .stat-card {
       background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
       border-radius: 10px; padding: .85rem 1.25rem; min-width: 110px;
-      transition: background .2s, border-color .2s;
     }
-    .stat-card:hover { background: rgba(255,255,255,.09); border-color: rgba(240,198,30,.3); }
     @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:1} }
     .stat-loading { animation: shimmer 1.4s ease-in-out infinite; }
-    @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-    .stat-appeared { animation: fadeUp .4s ease forwards; }
-
-    #email-input {
-      width: 100%; padding: .8rem 1rem; border: 1.5px solid #E7E2D2;
-      border-radius: 10px; font-size: .9rem; font-family: 'Inter', sans-serif;
-      color: #161513; background: #fff; outline: none;
-      transition: border-color .15s, box-shadow .15s;
-      margin-bottom: .75rem;
-    }
-    #email-input:focus { border-color: #F0C61E; box-shadow: 0 0 0 3px rgba(240,198,30,.15); }
-    #email-input::placeholder { color: #B5AFA5; }
-
     #signin-btn {
       width: 100%; display: flex; align-items: center; justify-content: center; gap: .65rem;
-      padding: .8rem 1.25rem; background: #161513; border: none;
-      border-radius: 10px; font-size: .9rem; font-weight: 600; color: #fff;
-      cursor: pointer; transition: background .15s, box-shadow .15s, transform .1s;
-      font-family: 'Inter', sans-serif;
+      padding: .8rem 1.25rem; background: #fff; border: 1.5px solid #E7E2D2;
+      border-radius: 10px; font-size: .9rem; font-weight: 600; color: #161513;
+      cursor: pointer; transition: all .15s; font-family: 'Inter', sans-serif;
     }
-    #signin-btn:hover:not(:disabled) { background: #2a2420; box-shadow: 0 3px 12px rgba(40,36,28,.2); transform: translateY(-1px); }
-    #signin-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+    #signin-btn:hover:not(:disabled) { border-color: #C9C2AE; box-shadow: 0 3px 12px rgba(40,36,28,.1); }
     #signin-btn:disabled { opacity: .55; cursor: not-allowed; }
-    #signin-btn:focus-visible { outline: 2px solid #F0C61E; outline-offset: 2px; }
-
-    #error-box {
-      display: none; margin-top: .9rem; padding: .75rem 1rem;
-      background: #FDECEA; border: 1px solid #f5c6c2; border-radius: 8px;
-      font-size: .83rem; color: #C0392B; line-height: 1.45;
-      align-items: flex-start; gap: .5rem;
-    }
-    #error-box.show { display: flex; }
-
+    #error-box { display: none; margin-top: .9rem; padding: .75rem 1rem; background: #FDECEA; border: 1px solid #f5c6c2; border-radius: 8px; font-size: .83rem; color: #C0392B; }
+    #error-box.show { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
-
+    .spinner { width: 16px; height: 16px; border: 2px solid #E7E2D2; border-top-color: #161513; border-radius: 50%; animation: spin .7s linear infinite; }
     @media (max-width: 767px) {
       #login-screen { flex-direction: column; }
       .login-left { flex: 0 0 auto; padding: 2rem 1.5rem; min-height: 260px; }
@@ -87,17 +60,16 @@
   </style>
 </head>
 <body>
-
   <div id="login-screen">
     <div class="login-left">
       <div style="display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;">
         <div style="width:36px;height:36px;background:#F0C61E;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.9rem;color:#161513;">SA</div>
-        <span style="color:rgba(255,255,255,.45);font-size:.8rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;">SAADAA &nbsp;·&nbsp; INTERNAL</span>
+        <span style="color:rgba(255,255,255,.45);font-size:.8rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;">SAADAA · INTERNAL</span>
       </div>
       <div style="position:relative;z-index:1;">
         <div style="margin-bottom:1.1rem;">
           <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(240,198,30,.1);border:1px solid rgba(240,198,30,.22);color:#F0C61E;font-size:.69rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;padding:.28rem .7rem;border-radius:100px;">
-            <span style="width:5px;height:5px;background:#F0C61E;border-radius:50%;display:inline-block;"></span>
+            <span style="width:5px;height:5px;background:#F0C61E;border-radius:50%;"></span>
             Influencer Management
           </span>
         </div>
@@ -106,158 +78,124 @@
       </div>
       <div style="position:relative;z-index:1;">
         <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1.75rem;">
-          <div class="stat-card">
-            <div style="font-size:.63rem;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;">CREATORS</div>
-            <div id="stat-creators" class="stat-loading" style="font-size:1.5rem;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;letter-spacing:-.5px;">—</div>
-          </div>
-          <div class="stat-card">
-            <div style="font-size:.63rem;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;">CAMPAIGNS</div>
-            <div id="stat-campaigns" class="stat-loading" style="font-size:1.5rem;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;letter-spacing:-.5px;">—</div>
-          </div>
-          <div class="stat-card">
-            <div style="font-size:.63rem;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;">POSTS</div>
-            <div id="stat-posts" class="stat-loading" style="font-size:1.5rem;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;letter-spacing:-.5px;">—</div>
-          </div>
+          <div class="stat-card"><div style="font-size:.63rem;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;">CREATORS</div><div id="stat-creators" class="stat-loading" style="font-size:1.5rem;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;">—</div></div>
+          <div class="stat-card"><div style="font-size:.63rem;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;">CAMPAIGNS</div><div id="stat-campaigns" class="stat-loading" style="font-size:1.5rem;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;">—</div></div>
+          <div class="stat-card"><div style="font-size:.63rem;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;">POSTS</div><div id="stat-posts" class="stat-loading" style="font-size:1.5rem;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;">—</div></div>
         </div>
-        <div style="font-size:.69rem;color:rgba(255,255,255,.18);letter-spacing:.04em;">v2.0 &nbsp;·&nbsp; Google Apps Script &nbsp;·&nbsp; Supabase</div>
+        <div style="font-size:.69rem;color:rgba(255,255,255,.18);">v3.0 · Google OAuth · Supabase</div>
       </div>
     </div>
-
     <div class="login-right">
       <div class="login-card">
-        <div style="margin-bottom:1.75rem;">
+        <div style="margin-bottom:2rem;">
           <p style="font-size:.69rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#9A9384;margin:0 0 .5rem;">SIGN IN</p>
-          <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1.7rem;font-weight:700;color:#161513;margin:0 0 .45rem;letter-spacing:-.5px;">Welcome back</h2>
-          <p style="font-size:.865rem;color:#6E695E;line-height:1.55;">Enter your <strong style="color:#161513;font-weight:600;">@saadaa.in</strong> email to continue.</p>
+          <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1.7rem;font-weight:700;color:#161513;margin:0 0 .45rem;">Welcome back</h2>
+          <p style="font-size:.865rem;color:#6E695E;">Use your <strong style="color:#161513;font-weight:600;">@saadaa.in</strong> Google account.</p>
         </div>
-
-        <input
-          type="email"
-          id="email-input"
-          placeholder="you@saadaa.in"
-          autocomplete="email"
-          spellcheck="false"
-        />
-
         <button id="signin-btn">
-          <span id="btn-label">Continue</span>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+          <span id="btn-label">Continue with Google</span>
         </button>
-
-        <div id="error-box" role="alert">
-          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="flex-shrink:0;margin-top:1px;" aria-hidden="true">
-            <circle cx="10" cy="10" r="9" stroke="#C0392B" stroke-width="1.5"/>
-            <path d="M10 6v5M10 14h.01" stroke="#C0392B" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-          <span id="error-text">Access denied.</span>
-        </div>
-
-        <div style="margin-top:2rem;padding-top:1.25rem;border-top:1px solid #F0EAD6;display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:.69rem;color:#B5AFA5;">Internal access only</span>
-          <span style="font-size:.69rem;color:#B5AFA5;">v2.0 · Supabase</span>
+        <div id="error-box"></div>
+        <div style="margin-top:2rem;padding-top:1.25rem;border-top:1px solid #F0EAD6;display:flex;justify-content:space-between;">
+          <span style="font-size:.69rem;color:#B5AFA5;">SSO via Google Workspace</span>
+          <span style="font-size:.69rem;color:#B5AFA5;">v3.0</span>
         </div>
       </div>
     </div>
   </div>
-
   <iframe id="gas-frame" allowfullscreen="true"></iframe>
-
   <script>
-    var SB_URL  = 'https://xynyvbagcudjrzklwnqp.supabase.co';
+    var SB_URL = 'https://xynyvbagcudjrzklwnqp.supabase.co';
     var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bnl2YmFnY3VkanJ6a2x3bnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjY4MjcsImV4cCI6MjA5MzkwMjgyN30.1Yuf1xytcp_tGWnkCVEQZU6DixQJgnIZJP2q9P8r8NU';
+    var REDIRECT = 'https://saadaa-sustainable.github.io/Influencer-Workflow-Optimizer/';
     var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwCOkaGFOzBAd9Bki58RNk9_qPmmpGrNCJMteknBt3dEcDzeba8LDXP1NR0h7irJFvF/exec';
-    var SESSION_KEY = 'ch_authed_email';
+    var SESSION_KEY = 'ch_auth_v3';
+    var sb = supabase.createClient(SB_URL, SB_ANON, { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true } });
 
-    /* --- stats (fire and forget) --- */
-    fetch(SB_URL + '/rest/v1/rpc/get_login_stats', {
-      method: 'POST',
-      headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
-      body: '{}'
-    }).then(function(r){ return r.json(); }).then(function(d){
-      if (!d) return;
-      animateCount(document.getElementById('stat-creators'),  Number(d.creators  || 0));
-      animateCount(document.getElementById('stat-campaigns'), Number(d.campaigns || 0));
-      animateCount(document.getElementById('stat-posts'),     Number(d.posts     || 0));
-    }).catch(function(){});
+    // Stats
+    fetch(SB_URL + '/rest/v1/rpc/get_login_stats', { method: 'POST', headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' }, body: '{}' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d && d.creators !== undefined) {
+          ['creators', 'campaigns', 'posts'].forEach(function(k) {
+            var el = document.getElementById('stat-' + k);
+            el.classList.remove('stat-loading');
+            el.textContent = Number(d[k] || 0).toLocaleString();
+          });
+        }
+      }).catch(function() {});
 
-    function animateCount(el, target) {
-      el.classList.remove('stat-loading');
-      var start = performance.now(), dur = 600;
-      function step(now) {
-        var p = Math.min((now - start) / dur, 1);
-        el.textContent = Math.round((1 - Math.pow(1 - p, 3)) * target).toLocaleString();
-        if (p < 1) requestAnimationFrame(step);
-        else { el.textContent = target.toLocaleString(); el.classList.add('stat-appeared'); }
-      }
-      requestAnimationFrame(step);
+    function showError(msg) { var e = document.getElementById('error-box'); e.textContent = msg; e.classList.add('show'); }
+    function hideError() { document.getElementById('error-box').classList.remove('show'); }
+    function setLoading(on) {
+      var btn = document.getElementById('signin-btn');
+      btn.disabled = on;
+      document.getElementById('btn-label').textContent = on ? 'Signing in...' : 'Continue with Google';
     }
 
-    var SPINNER_HTML = '<div class="spinner"></div>';
-
-    function showError(msg) {
-      document.getElementById('error-text').textContent = msg;
-      document.getElementById('error-box').classList.add('show');
-    }
-    function resetBtn() {
-      var b = document.getElementById('signin-btn');
-      b.disabled = false;
-      b.innerHTML = '<span>Continue</span>';
-      document.getElementById('email-input').disabled = false;
-    }
-    function setBtnState(label) {
-      var b = document.getElementById('signin-btn');
-      b.disabled = true;
-      b.innerHTML = SPINNER_HTML + '<span>' + label + '</span>';
-      document.getElementById('email-input').disabled = true;
-    }
-
-    function launchApp(email) {
-      sessionStorage.setItem(SESSION_KEY, email);
+    function launchApp(email, role) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
       var frame = document.getElementById('gas-frame');
-      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email);
+      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role);
       frame.style.display = 'block';
       document.getElementById('login-screen').style.display = 'none';
     }
 
-    /* Re-launch immediately if already verified in this tab */
-    var cachedEmail = sessionStorage.getItem(SESSION_KEY);
-    if (cachedEmail) {
-      launchApp(cachedEmail);
-    }
-
-    function verifyEmail(email) {
-      setBtnState('Checking access…');
-      document.getElementById('error-box').classList.remove('show');
-
+    function verifyAndLaunch(email) {
+      setLoading(true);
       fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
         method: 'POST',
         headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
         body: JSON.stringify({ p_email: email })
       })
       .then(function(r) { return r.json(); })
-      .then(function(row) {
+      .then(function(rows) {
+        var row = Array.isArray(rows) ? rows[0] : rows;
         if (row && row.email) {
-          launchApp(email);
+          launchApp(email, row.role || '');
         } else {
-          resetBtn();
-          showError('Access denied. ' + email + ' is not authorised.');
+          setLoading(false);
+          showError('Access denied. ' + email + ' is not authorized.');
+          sb.auth.signOut();
         }
       })
-      .catch(function() {
-        resetBtn();
-        showError('Connection error. Please try again.');
+      .catch(function(err) {
+        setLoading(false);
+        showError('Connection error: ' + err.message);
       });
     }
 
-    function handleSubmit() {
-      var email = document.getElementById('email-input').value.trim().toLowerCase();
-      if (!email) { showError('Please enter your email address.'); return; }
-      if (!email.endsWith('@saadaa.in')) { showError('Use your @saadaa.in email address.'); return; }
-      verifyEmail(email);
+    // Check cached session first
+    var cached = sessionStorage.getItem(SESSION_KEY);
+    if (cached) {
+      try {
+        var c = JSON.parse(cached);
+        if (c.email) launchApp(c.email, c.role || '');
+      } catch(e) {}
     }
 
-    document.getElementById('signin-btn').addEventListener('click', handleSubmit);
-    document.getElementById('email-input').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') handleSubmit();
+    // Handle OAuth callback
+    var authHandled = false;
+    sb.auth.onAuthStateChange(function(event, session) {
+      if (event === 'SIGNED_OUT') { authHandled = false; return; }
+      if (session && session.user && session.user.email && !authHandled) {
+        authHandled = true;
+        verifyAndLaunch(session.user.email);
+      }
+    });
+
+    // Sign in button
+    document.getElementById('signin-btn').addEventListener('click', function() {
+      if (this.disabled) return;
+      hideError();
+      setLoading(true);
+      sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in' } }
+      }).then(function(r) {
+        if (r.error) { setLoading(false); showError('OAuth error: ' + r.error.message); }
+      });
     });
   </script>
 </body>
