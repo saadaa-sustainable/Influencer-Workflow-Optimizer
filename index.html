@@ -140,11 +140,21 @@
     function launchApp(email, role) {
       console.log('[CreatorHub] launchApp called:', email, role);
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
+
+      var loginScreen = document.getElementById('login-screen');
       var frame = document.getElementById('gas-frame');
+
+      console.log('[CreatorHub] Before - loginScreen display:', loginScreen.style.display, 'frame display:', frame.style.display);
+
+      // Force hide login with !important
+      loginScreen.style.cssText = 'display: none !important;';
+
+      // Set iframe src and show it
       frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role);
-      frame.style.display = 'block';
-      document.getElementById('login-screen').style.display = 'none';
-      console.log('[CreatorHub] iframe shown, login hidden');
+      frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
+
+      console.log('[CreatorHub] After - loginScreen display:', loginScreen.style.display, 'frame display:', frame.style.display);
+      console.log('[CreatorHub] loginScreen offsetHeight:', loginScreen.offsetHeight, 'frame offsetHeight:', frame.offsetHeight);
     }
 
     function verifyAndLaunch(email) {
