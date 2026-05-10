@@ -139,10 +139,12 @@
 
     function tabFromHash() {
       var match = window.location.hash.match(/^#tab=([^&]+)/);
-      return match ? decodeURIComponent(match[1]) : '';
+      var tab = match ? decodeURIComponent(match[1]) : '';
+      return tab === 'accounts' ? 'dashboard' : tab;
     }
 
     function tabUrl(tabId) {
+      if (tabId === 'accounts') tabId = 'dashboard';
       return window.location.pathname + '#tab=' + encodeURIComponent(tabId);
     }
 
