@@ -146,10 +146,15 @@
   </div>
 
   <!--
-    No sandbox — GAS requires same-origin + scripts + popups + forms to function.
-    Instead we intercept beforeunload to detect if GAS tries to navigate the parent.
+    sandbox omits allow-top-navigation so GAS <base target="_top"> cannot reload the parent.
+    allow-same-origin is required for google.script.run (postMessage to same GAS origin).
+    allow-popups-to-escape-sandbox lets GAS open new tabs/windows normally.
   -->
-  <iframe id="gas-frame" allowfullscreen="true"></iframe>
+  <iframe
+    id="gas-frame"
+    allowfullscreen="true"
+    sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals allow-downloads allow-popups-to-escape-sandbox"
+  ></iframe>
 
   <script>
     var SB_URL  = 'https://xynyvbagcudjrzklwnqp.supabase.co';
