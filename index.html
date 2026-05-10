@@ -137,6 +137,28 @@
     var LOGOUT_KEY = 'ch_logout_pending';
     var sb = supabase.createClient(SB_URL, SB_ANON, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } });
 
+    function tabFromHash() {
+      var match = window.location.hash.match(/^#tab=([^&]+)/);
+      return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function tabUrl(tabId) {
+      return window.location.pathname + '#tab=' + encodeURIComponent(tabId);
+    }
+
+    function sendTabToFrame(tabId) {
+      var frame = document.getElementById('gas-frame');
+      if (frame && frame.contentWindow && tabId) {
+        frame.contentWindow.postMessage({ type: 'navigate-tab', tabId: tabId }, '*');
+      }
+    }
+
+    function cleanAuthCallbackUrl() {
+      var currentTab = tabFromHash();
+      var cleanUrl = window.location.pathname + (currentTab ? '#tab=' + encodeURIComponent(currentTab) : '');
+      history.replaceState(currentTab ? { tabId: currentTab } : null, '', cleanUrl);
+    }
+
     function clearAuthState() {
       sessionStorage.removeItem(SESSION_KEY);
       sessionStorage.setItem(LOGOUT_KEY, '1');
@@ -173,8 +195,8 @@
     function launchApp(email, role) {
       console.log('[CreatorHub] launchApp called:', email, role);
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
-      if (window.location.hash || window.location.search.indexOf('code=') > -1) {
-        history.replaceState(null, '', window.location.pathname);
+      if (window.location.hash.indexOf('access_token') > -1 || window.location.search.indexOf('code=') > -1) {
+        cleanAuthCallbackUrl();
       }
 
       var loginScreen = document.getElementById('login-screen');
@@ -188,6 +210,7 @@
       // Set iframe src and show it
       frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role);
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
+      frame.onload = function() { sendTabToFrame(tabFromHash()); };
 
       console.log('[CreatorHub] After - loginScreen display:', loginScreen.style.display, 'frame display:', frame.style.display);
       console.log('[CreatorHub] loginScreen offsetHeight:', loginScreen.offsetHeight, 'frame offsetHeight:', frame.offsetHeight);
@@ -228,7 +251,7 @@
     }
 
     // Check if this is an OAuth callback (has access_token in hash)
-    var isOAuthCallback = window.location.hash.includes('access_token');
+    var isOAuthCallback = window.location.hash.includes('access_token') || window.location.search.indexOf('code=') > -1;
 
     // PRIORITY 1: Check cached session FIRST (instant restore)
     console.log('[CreatorHub] v4 loaded, isOAuthCallback:', isOAuthCallback);
@@ -263,7 +286,7 @@
       if (event === 'SIGNED_OUT') return;
       if (session && session.user && session.user.email) {
         // Clear hash to prevent re-processing on refresh
-        if (window.location.hash || window.location.search.indexOf('code=') > -1) history.replaceState(null, '', window.location.pathname);
+        if (window.location.hash.indexOf('access_token') > -1 || window.location.search.indexOf('code=') > -1) cleanAuthCallbackUrl();
         verifyAndLaunch(session.user.email);
       }
     });
@@ -283,11 +306,20 @@
 
     // Listen for logout message from iframe
     window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'tab-change' && e.data.tabId) {
+        var nextUrl = tabUrl(e.data.tabId);
+        if (window.location.hash !== '#tab=' + encodeURIComponent(e.data.tabId)) {
+          if (e.data.replace) history.replaceState({ tabId: e.data.tabId }, '', nextUrl);
+          else history.pushState({ tabId: e.data.tabId }, '', nextUrl);
+        }
+        return;
+      }
       if (e.data && e.data.type === 'logout') {
         // Clear ALL storage to prevent auto re-login
         clearAuthState();
         appLaunched = false;
         document.documentElement.classList.remove('has-session');
+        history.replaceState(null, '', window.location.pathname);
         document.getElementById('gas-frame').removeAttribute('src');
         document.getElementById('gas-frame').style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; z-index: 9999;';
         document.getElementById('login-screen').style.cssText = 'display: flex !important;';
@@ -296,6 +328,10 @@
           sessionStorage.removeItem(LOGOUT_KEY);
         });
       }
+    });
+
+    window.addEventListener('popstate', function() {
+      sendTabToFrame(tabFromHash());
     });
   </script>
 </body>
