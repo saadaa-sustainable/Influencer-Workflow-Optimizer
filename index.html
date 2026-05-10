@@ -135,7 +135,7 @@
     var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwCOkaGFOzBAd9Bki58RNk9_qPmmpGrNCJMteknBt3dEcDzeba8LDXP1NR0h7irJFvF/exec';
     var SESSION_KEY = 'ch_auth_v3';
     var LOGOUT_KEY = 'ch_logout_pending';
-    var sb = supabase.createClient(SB_URL, SB_ANON, { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true } });
+    var sb = supabase.createClient(SB_URL, SB_ANON, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } });
 
     function clearAuthState() {
       sessionStorage.removeItem(SESSION_KEY);
@@ -173,6 +173,9 @@
     function launchApp(email, role) {
       console.log('[CreatorHub] launchApp called:', email, role);
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
+      if (window.location.hash || window.location.search.indexOf('code=') > -1) {
+        history.replaceState(null, '', window.location.pathname);
+      }
 
       var loginScreen = document.getElementById('login-screen');
       var frame = document.getElementById('gas-frame');
@@ -260,7 +263,7 @@
       if (event === 'SIGNED_OUT') return;
       if (session && session.user && session.user.email) {
         // Clear hash to prevent re-processing on refresh
-        if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+        if (window.location.hash || window.location.search.indexOf('code=') > -1) history.replaceState(null, '', window.location.pathname);
         verifyAndLaunch(session.user.email);
       }
     });
