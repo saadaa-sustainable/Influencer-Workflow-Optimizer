@@ -92,7 +92,7 @@
   <div id="login-screen">
     <div class="login-left">
       <div style="display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;">
-        <div style="width:36px;height:36px;background:#F0C61E;border-radius:8px;display:flex;align-items:center;justify-content:middle;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.9rem;color:#161513;align-items:center;justify-content:center;">SA</div>
+        <div style="width:36px;height:36px;background:#F0C61E;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.9rem;color:#161513;">SA</div>
         <span style="color:rgba(255,255,255,.45);font-size:.8rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;">SAADAA &nbsp;·&nbsp; INTERNAL</span>
       </div>
 
@@ -154,7 +154,7 @@
 
         <div style="margin-top:2rem;padding-top:1.25rem;border-top:1px solid #F0EAD6;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:.69rem;color:#B5AFA5;">SSO via Google Workspace</span>
-          <span style="font-size:.69rem;color:#B5AFA5;">v2.0 · Supabase</span>
+          <span style="font-size:.69px;color:#B5AFA5;">v2.0 · Supabase</span>
         </div>
       </div>
     </div>
@@ -170,7 +170,6 @@
     var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bnl2YmFnY3VkanJ6a2x3bnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjY4MjcsImV4cCI6MjA5MzkwMjgyN30.1Yuf1xytcp_tGWnkCVEQZU6DixQJgnIZJP2q9P8r8NU';
     var REDIRECT = 'https://saadaa-sustainable.github.io/Influencer-Workflow-Optimizer/';
 
-    /* Use implicit flow so token lands in #hash on redirect — no server exchange needed */
     var sb = supabase.createClient(SB_URL, SB_ANON, {
       auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true }
     });
@@ -220,14 +219,12 @@
       btn.innerHTML = SPINNER_HTML + '<span>' + label + '</span>';
     }
     function launchApp() {
-      console.log('[CreatorHub] Launching app');
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('gas-frame').style.display = 'block';
     }
 
     /* --- Access check via SECURITY DEFINER RPC --- */
     function verifyAccess(email) {
-      console.log('[CreatorHub] Verifying access for:', email);
       setBtnState('Verifying access…');
       fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
         method: 'POST',
@@ -236,7 +233,6 @@
       })
       .then(function(r){ return r.json(); })
       .then(function(row){
-        console.log('[CreatorHub] user_access row:', JSON.stringify(row));
         if (!row || !row.email) {
           authHandled = false;
           resetBtn();
@@ -246,17 +242,15 @@
           launchApp();
         }
       })
-      .catch(function(err){
-        console.error('[CreatorHub] verifyAccess error:', err);
+      .catch(function(){
         authHandled = false;
         resetBtn();
         showError('Connection error. Please try again.');
       });
     }
 
-    /* --- Auth state listener (set up BEFORE getSession) --- */
+    /* Register listener before getSession so INITIAL_SESSION fires first */
     sb.auth.onAuthStateChange(function(event, session) {
-      console.log('[CreatorHub] onAuthStateChange event:', event, 'session:', session ? session.user.email : null, 'authHandled:', authHandled);
       if (event === 'SIGNED_IN' && session && session.user && !authHandled) {
         authHandled = true;
         verifyAccess(session.user.email);
@@ -266,25 +260,18 @@
       }
     });
 
-    /* --- Check for existing session on load --- */
     sb.auth.getSession().then(function(r) {
-      console.log('[CreatorHub] getSession result:', r.data.session ? r.data.session.user.email : 'no session', 'error:', r.error);
       var session = r.data && r.data.session;
       if (!session) return;
 
       var now = Math.floor(Date.now() / 1000);
       var expiresAt = session.expires_at || 0;
-      var remainingSecs = expiresAt - now;
-      console.log('[CreatorHub] Session expires_at:', expiresAt, 'now:', now, 'remaining:', remainingSecs + 's');
-
-      /* If >2h remain, clock skew — clear and show login */
-      if (remainingSecs > 7200) {
-        console.log('[CreatorHub] Clock skew detected, signing out');
+      /* Supabase tokens are 1h. If >4000s remain on first load, something is skewed */
+      if ((expiresAt - now) > 4000) {
         sb.auth.signOut();
         return;
       }
 
-      /* Valid session found: auto-launch if not already handled by onAuthStateChange */
       if (!authHandled && session.user && session.user.email) {
         authHandled = true;
         verifyAccess(session.user.email);
@@ -299,15 +286,10 @@
       setBtnState('Redirecting to Google…');
       document.getElementById('error-box').classList.remove('show');
 
-      console.log('[CreatorHub] Starting OAuth, redirectTo:', REDIRECT);
       sb.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: REDIRECT,
-          queryParams: { hd: 'saadaa.in' }
-        }
+        options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in' } }
       }).then(function(r) {
-        console.log('[CreatorHub] signInWithOAuth result:', r.error ? r.error.message : 'ok, redirecting');
         if (r.error) { resetBtn(); showError('OAuth error: ' + r.error.message); }
       });
     });
