@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CreatorHub</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -135,11 +138,13 @@
     }
 
     function launchApp(email, role) {
+      console.log('[CreatorHub] launchApp called:', email, role);
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
       var frame = document.getElementById('gas-frame');
       frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role);
       frame.style.display = 'block';
       document.getElementById('login-screen').style.display = 'none';
+      console.log('[CreatorHub] iframe shown, login hidden');
     }
 
     function verifyAndLaunch(email) {
@@ -179,15 +184,19 @@
     var isOAuthCallback = window.location.hash.includes('access_token');
 
     // PRIORITY 1: Check cached session FIRST (instant restore)
+    console.log('[CreatorHub] v4 loaded, isOAuthCallback:', isOAuthCallback);
     if (!isOAuthCallback) {
       var cached = sessionStorage.getItem(SESSION_KEY);
+      console.log('[CreatorHub] cached session:', cached);
       if (cached) {
         try {
           var c = JSON.parse(cached);
+          console.log('[CreatorHub] parsed cache:', c);
           if (c.email) {
+            console.log('[CreatorHub] calling safeLaunch from cache');
             safeLaunch(c.email, c.role || '');
           }
-        } catch(e) {}
+        } catch(e) { console.error('[CreatorHub] cache parse error:', e); }
       }
     }
 
