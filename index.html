@@ -10,10 +10,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: #F5F1EC; }
 
-    #gas-frame {
-      position: fixed; inset: 0; width: 100%; height: 100%;
-      border: none; display: none;
-    }
+    #gas-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; }
     #login-screen { display: flex; width: 100vw; height: 100vh; }
 
     .login-left {
@@ -46,7 +43,6 @@
       transition: background .2s, border-color .2s;
     }
     .stat-card:hover { background: rgba(255,255,255,.09); border-color: rgba(240,198,30,.3); }
-
     @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:1} }
     .stat-loading { animation: shimmer 1.4s ease-in-out infinite; }
     @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
@@ -59,9 +55,7 @@
       cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s;
       font-family: 'Inter', sans-serif;
     }
-    #signin-btn:hover:not(:disabled) {
-      border-color: #C9C2AE; box-shadow: 0 3px 12px rgba(40,36,28,.1); transform: translateY(-1px);
-    }
+    #signin-btn:hover:not(:disabled) { border-color: #C9C2AE; box-shadow: 0 3px 12px rgba(40,36,28,.1); transform: translateY(-1px); }
     #signin-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     #signin-btn:disabled { opacity: .65; cursor: not-allowed; }
     #signin-btn:focus-visible { outline: 2px solid #F0C61E; outline-offset: 2px; }
@@ -75,11 +69,7 @@
     #error-box.show { display: flex; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      width: 16px; height: 16px; border: 2px solid #E7E2D2;
-      border-top-color: #161513; border-radius: 50%;
-      animation: spin .7s linear infinite; flex-shrink: 0;
-    }
+    .spinner { width: 16px; height: 16px; border: 2px solid #E7E2D2; border-top-color: #161513; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
 
     @media (max-width: 767px) {
       #login-screen { flex-direction: column; }
@@ -160,7 +150,6 @@
     </div>
   </div>
 
-  <!-- src set dynamically after auth so email param is included -->
   <iframe id="gas-frame" allowfullscreen="true"></iframe>
 
   <script>
@@ -168,12 +157,11 @@
     var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bnl2YmFnY3VkanJ6a2x3bnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjY4MjcsImV4cCI6MjA5MzkwMjgyN30.1Yuf1xytcp_tGWnkCVEQZU6DixQJgnIZJP2q9P8r8NU';
     var REDIRECT = 'https://saadaa-sustainable.github.io/Influencer-Workflow-Optimizer/';
     var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwCOkaGFOzBAd9Bki58RNk9_qPmmpGrNCJMteknBt3dEcDzeba8LDXP1NR0h7irJFvF/exec';
+    var SESSION_KEY = 'ch_authed_email';
 
     var sb = supabase.createClient(SB_URL, SB_ANON, {
       auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true }
     });
-
-    var authHandled = false;
 
     /* --- Stats --- */
     fetch(SB_URL + '/rest/v1/rpc/get_login_stats', {
@@ -217,67 +205,70 @@
       btn.disabled = true;
       btn.innerHTML = SPINNER_HTML + '<span>' + label + '</span>';
     }
-
-    /* Set iframe src with email param, then show it — GAS reads email from URL, skips OAuth dialog */
     function launchApp(email) {
+      sessionStorage.setItem(SESSION_KEY, email);
       document.getElementById('gas-frame').src = GAS_BASE + '?email=' + encodeURIComponent(email);
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('gas-frame').style.display = 'block';
     }
 
-    /* --- Access check via SECURITY DEFINER RPC --- */
-    function verifyAccess(email) {
-      setBtnState('Verifying access…');
-      fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
-        method: 'POST',
-        headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p_email: email })
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(row){
-        if (!row || !row.email) {
+    /* --- Check sessionStorage first — survives page reloads within same tab --- */
+    var cachedEmail = sessionStorage.getItem(SESSION_KEY);
+    if (cachedEmail) {
+      /* Already verified this session — skip Supabase entirely, go straight to app */
+      launchApp(cachedEmail);
+    } else {
+      /* Fresh load — wire up Supabase auth */
+      var authHandled = false;
+
+      function verifyAccess(email) {
+        setBtnState('Verifying access…');
+        fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
+          method: 'POST',
+          headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_email: email })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(row){
+          if (!row || !row.email) {
+            authHandled = false;
+            resetBtn();
+            showError('Access Denied. ' + email + ' is not authorized.');
+            sb.auth.signOut();
+          } else {
+            launchApp(email);
+          }
+        })
+        .catch(function(){
           authHandled = false;
           resetBtn();
-          showError('Access Denied. ' + email + ' is not authorized. Contact your admin.');
-          sb.auth.signOut();
-        } else {
-          launchApp(email);
-        }
-      })
-      .catch(function(){
-        authHandled = false;
-        resetBtn();
-        showError('Connection error. Please try again.');
-      });
-    }
-
-    function handleSession(session) {
-      if (session && session.user && session.user.email && !authHandled) {
-        authHandled = true;
-        verifyAccess(session.user.email);
+          showError('Connection error. Please try again.');
+        });
       }
-    }
 
-    sb.auth.onAuthStateChange(function(event, session) {
-      if (event === 'SIGNED_OUT') { authHandled = false; return; }
-      if (session && session.user) { handleSession(session); }
-    });
-
-    /* Sign-in button */
-    document.getElementById('signin-btn').addEventListener('click', function() {
-      var btn = document.getElementById('signin-btn');
-      if (btn.disabled) return;
-      authHandled = false;
-      setBtnState('Redirecting to Google…');
-      document.getElementById('error-box').classList.remove('show');
-
-      sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in' } }
-      }).then(function(r) {
-        if (r.error) { resetBtn(); showError('OAuth error: ' + r.error.message); }
+      sb.auth.onAuthStateChange(function(event, session) {
+        console.log('[CH] event:', event, session ? session.user.email : null);
+        if (event === 'SIGNED_OUT') { authHandled = false; return; }
+        if (session && session.user && session.user.email && !authHandled) {
+          authHandled = true;
+          verifyAccess(session.user.email);
+        }
       });
-    });
+
+      document.getElementById('signin-btn').addEventListener('click', function() {
+        var btn = document.getElementById('signin-btn');
+        if (btn.disabled) return;
+        authHandled = false;
+        setBtnState('Redirecting to Google…');
+        document.getElementById('error-box').classList.remove('show');
+        sb.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in' } }
+        }).then(function(r) {
+          if (r.error) { resetBtn(); showError('OAuth error: ' + r.error.message); }
+        });
+      });
+    }
   </script>
 </body>
 </html>
