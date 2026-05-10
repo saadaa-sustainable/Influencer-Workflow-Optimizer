@@ -353,6 +353,14 @@
           setLoading(false);
           showError('Could not complete Google sign-in. Please try again.');
         }
+        if (!isOAuthCallback && document.documentElement.classList.contains('has-session')) {
+          clearAuthState();
+          document.documentElement.classList.remove('has-session');
+          document.getElementById('gas-frame').style.display = 'none';
+          document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+          setLoading(false);
+          showError('Access revoked. This Google account is no longer authorized for CreatorHub.');
+        }
       }).catch(function() {
         if (isOAuthCallback) {
           document.documentElement.classList.remove('has-session');
@@ -361,6 +369,13 @@
           cleanAuthCallbackUrl();
           setLoading(false);
           showError('Could not complete Google sign-in. Please try again.');
+        } else if (document.documentElement.classList.contains('has-session')) {
+          clearAuthState();
+          document.documentElement.classList.remove('has-session');
+          document.getElementById('gas-frame').style.display = 'none';
+          document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+          setLoading(false);
+          showError('Access revoked. Please sign in again with an authorized account.');
         }
       });
     }, 1200);
