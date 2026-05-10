@@ -12,7 +12,7 @@
 
     #gas-frame {
       position: fixed; inset: 0; width: 100%; height: 100%;
-      border: none; display: none; background: #000;
+      border: none; display: none;
     }
     #login-screen { display: flex; width: 100vw; height: 100vh; }
 
@@ -73,6 +73,13 @@
       align-items: flex-start; gap: .5rem;
     }
     #error-box.show { display: flex; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid #E7E2D2;
+      border-top-color: #161513; border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
 
     @media (max-width: 767px) {
       #login-screen { flex-direction: column; }
@@ -164,6 +171,19 @@
     var REDIRECT = 'https://saadaa-sustainable.github.io/Influencer-Workflow-Optimizer/';
 
     var sb = supabase.createClient(SB_URL, SB_ANON);
+    var authHandled = false;
+
+    /* --- Stats --- */
+    fetch(SB_URL + '/rest/v1/rpc/get_login_stats', {
+      method: 'POST',
+      headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
+      body: '{}'
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (!d) return;
+      animateCount(document.getElementById('stat-creators'),  Number(d.creators  || 0));
+      animateCount(document.getElementById('stat-campaigns'), Number(d.campaigns || 0));
+      animateCount(document.getElementById('stat-posts'),     Number(d.posts     || 0));
+    }).catch(function(){});
 
     function animateCount(el, target) {
       el.classList.remove('stat-loading');
@@ -177,32 +197,32 @@
       requestAnimationFrame(step);
     }
 
-    fetch(SB_URL + '/rest/v1/rpc/get_login_stats', {
-      method: 'POST',
-      headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
-      body: '{}'
-    }).then(function(r){ return r.json(); }).then(function(d){
-      if (!d) return;
-      animateCount(document.getElementById('stat-creators'),  Number(d.creators  || 0));
-      animateCount(document.getElementById('stat-campaigns'), Number(d.campaigns || 0));
-      animateCount(document.getElementById('stat-posts'),     Number(d.posts     || 0));
-    }).catch(function(){});
+    /* --- UI helpers --- */
+    var GOOGLE_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>';
+    var SPINNER_HTML = '<div class="spinner"></div>';
 
     function showError(msg) {
       document.getElementById('error-text').textContent = msg;
       document.getElementById('error-box').classList.add('show');
     }
     function resetBtn() {
-      document.getElementById('signin-btn').disabled = false;
-      document.getElementById('btn-label').textContent = 'Continue with Google';
+      var btn = document.getElementById('signin-btn');
+      btn.disabled = false;
+      btn.innerHTML = GOOGLE_SVG + '<span>Continue with Google</span>';
+    }
+    function setBtnState(label) {
+      var btn = document.getElementById('signin-btn');
+      btn.disabled = true;
+      btn.innerHTML = SPINNER_HTML + '<span>' + label + '</span>';
     }
     function launchApp() {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('gas-frame').style.display = 'block';
     }
 
-    /* Use SECURITY DEFINER RPC — bypasses RLS, safe for anon key */
+    /* --- Access check via SECURITY DEFINER RPC (bypasses RLS) --- */
     function verifyAccess(email) {
+      setBtnState('Verifying access…');
       fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
         method: 'POST',
         headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
@@ -211,37 +231,67 @@
       .then(function(r){ return r.json(); })
       .then(function(row){
         if (!row || !row.email) {
+          authHandled = false;
           resetBtn();
-          showError('Access Denied. ' + email + ' is not authorized.');
+          showError('Access Denied. ' + email + ' is not authorized. Contact your admin.');
           sb.auth.signOut();
         } else {
           launchApp();
         }
       })
       .catch(function(){
+        authHandled = false;
         resetBtn();
         showError('Connection error. Please try again.');
       });
     }
 
+    /* --- On load: check for existing session ---
+         If session exists and looks valid (expires within normal range), auto-launch.
+         If session is stale/skewed (clock issue), clear it and show login.
+    --- */
     sb.auth.getSession().then(function(r) {
-      if (r.data && r.data.session) verifyAccess(r.data.session.user.email);
+      var session = r.data && r.data.session;
+      if (!session) return; /* No session: show login */
+
+      var now = Math.floor(Date.now() / 1000);
+      var expiresAt = session.expires_at || 0;
+      /* Supabase tokens last 1 hour. If >2h remain, clock is skewed forward on server */
+      var isSkewed = expiresAt > 0 && (expiresAt - now) > 7200;
+
+      if (isSkewed) {
+        sb.auth.signOut(); /* Clear bad token, show login */
+      } else if (session.user && session.user.email) {
+        authHandled = true;
+        verifyAccess(session.user.email);
+      }
     });
 
+    /* After OAuth redirect: SIGNED_IN fires with fresh token */
     sb.auth.onAuthStateChange(function(event, session) {
-      if (event === 'SIGNED_IN' && session) verifyAccess(session.user.email);
+      if (event === 'SIGNED_IN' && session && session.user && !authHandled) {
+        authHandled = true;
+        verifyAccess(session.user.email);
+      }
+      if (event === 'SIGNED_OUT') {
+        authHandled = false;
+      }
     });
 
+    /* --- Sign-in button --- */
     document.getElementById('signin-btn').addEventListener('click', function() {
       var btn = document.getElementById('signin-btn');
       if (btn.disabled) return;
-      btn.disabled = true;
-      document.getElementById('btn-label').textContent = 'Redirecting to Google…';
+      authHandled = false;
+      setBtnState('Redirecting to Google…');
       document.getElementById('error-box').classList.remove('show');
 
       sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in' } }
+        options: {
+          redirectTo: REDIRECT,
+          queryParams: { hd: 'saadaa.in' }
+        }
       }).then(function(r) {
         if (r.error) { resetBtn(); showError('OAuth error: ' + r.error.message); }
       });
