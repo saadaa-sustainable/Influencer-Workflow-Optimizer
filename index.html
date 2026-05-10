@@ -85,7 +85,6 @@
         <div style="width:36px;height:36px;background:#F0C61E;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.9rem;color:#161513;">SA</div>
         <span style="color:rgba(255,255,255,.45);font-size:.8rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;">SAADAA &nbsp;·&nbsp; INTERNAL</span>
       </div>
-
       <div style="position:relative;z-index:1;">
         <div style="margin-bottom:1.1rem;">
           <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(240,198,30,.1);border:1px solid rgba(240,198,30,.22);color:#F0C61E;font-size:.69rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;padding:.28rem .7rem;border-radius:100px;">
@@ -96,7 +95,6 @@
         <h1 style="font-family:'Space Grotesk',sans-serif;font-size:clamp(2.4rem,3.8vw,3.2rem);font-weight:700;color:#fff;line-height:1.12;margin:0 0 1rem;letter-spacing:-1.5px;">CreatorHub</h1>
         <p style="font-size:.95rem;color:rgba(255,255,255,.38);line-height:1.65;max-width:320px;">One source of truth for every creator, campaign, and collab.</p>
       </div>
-
       <div style="position:relative;z-index:1;">
         <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1.75rem;">
           <div class="stat-card">
@@ -123,7 +121,6 @@
           <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1.7rem;font-weight:700;color:#161513;margin:0 0 .45rem;letter-spacing:-.5px;">Welcome back</h2>
           <p style="font-size:.865rem;color:#6E695E;line-height:1.55;">Use your <strong style="color:#161513;font-weight:600;">@saadaa.in</strong> Google account.</p>
         </div>
-
         <button id="signin-btn" aria-label="Sign in with Google">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
             <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -133,7 +130,6 @@
           </svg>
           <span id="btn-label">Continue with Google</span>
         </button>
-
         <div id="error-box" role="alert">
           <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="flex-shrink:0;margin-top:1px;" aria-hidden="true">
             <circle cx="10" cy="10" r="9" stroke="#C0392B" stroke-width="1.5"/>
@@ -141,7 +137,6 @@
           </svg>
           <span id="error-text">Access Denied.</span>
         </div>
-
         <div style="margin-top:2rem;padding-top:1.25rem;border-top:1px solid #F0EAD6;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:.69rem;color:#B5AFA5;">SSO via Google Workspace</span>
           <span style="font-size:.69rem;color:#B5AFA5;">v2.0 · Supabase</span>
@@ -150,6 +145,10 @@
     </div>
   </div>
 
+  <!--
+    No sandbox — GAS requires same-origin + scripts + popups + forms to function.
+    Instead we intercept beforeunload to detect if GAS tries to navigate the parent.
+  -->
   <iframe id="gas-frame" allowfullscreen="true"></iframe>
 
   <script>
@@ -163,7 +162,7 @@
       auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true }
     });
 
-    /* --- Stats --- */
+    /* Stats */
     fetch(SB_URL + '/rest/v1/rpc/get_login_stats', {
       method: 'POST',
       headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
@@ -187,38 +186,26 @@
       requestAnimationFrame(step);
     }
 
-    /* --- UI helpers --- */
-    var GOOGLE_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>';
+    var GOOGLE_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>';
     var SPINNER_HTML = '<div class="spinner"></div>';
 
-    function showError(msg) {
-      document.getElementById('error-text').textContent = msg;
-      document.getElementById('error-box').classList.add('show');
-    }
-    function resetBtn() {
-      var btn = document.getElementById('signin-btn');
-      btn.disabled = false;
-      btn.innerHTML = GOOGLE_SVG + '<span>Continue with Google</span>';
-    }
-    function setBtnState(label) {
-      var btn = document.getElementById('signin-btn');
-      btn.disabled = true;
-      btn.innerHTML = SPINNER_HTML + '<span>' + label + '</span>';
-    }
+    function showError(msg) { document.getElementById('error-text').textContent = msg; document.getElementById('error-box').classList.add('show'); }
+    function resetBtn() { var b = document.getElementById('signin-btn'); b.disabled = false; b.innerHTML = GOOGLE_SVG + '<span>Continue with Google</span>'; }
+    function setBtnState(l) { var b = document.getElementById('signin-btn'); b.disabled = true; b.innerHTML = SPINNER_HTML + '<span>' + l + '</span>'; }
+
     function launchApp(email) {
       sessionStorage.setItem(SESSION_KEY, email);
-      document.getElementById('gas-frame').src = GAS_BASE + '?email=' + encodeURIComponent(email);
+      var frame = document.getElementById('gas-frame');
+      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email);
+      frame.style.display = 'block';
       document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('gas-frame').style.display = 'block';
     }
 
-    /* --- Check sessionStorage first — survives page reloads within same tab --- */
+    /* If page reloads within same tab (e.g. GAS triggers navigation), re-launch immediately */
     var cachedEmail = sessionStorage.getItem(SESSION_KEY);
     if (cachedEmail) {
-      /* Already verified this session — skip Supabase entirely, go straight to app */
       launchApp(cachedEmail);
     } else {
-      /* Fresh load — wire up Supabase auth */
       var authHandled = false;
 
       function verifyAccess(email) {
@@ -231,23 +218,17 @@
         .then(function(r){ return r.json(); })
         .then(function(row){
           if (!row || !row.email) {
-            authHandled = false;
-            resetBtn();
+            authHandled = false; resetBtn();
             showError('Access Denied. ' + email + ' is not authorized.');
             sb.auth.signOut();
           } else {
             launchApp(email);
           }
         })
-        .catch(function(){
-          authHandled = false;
-          resetBtn();
-          showError('Connection error. Please try again.');
-        });
+        .catch(function(){ authHandled = false; resetBtn(); showError('Connection error. Please try again.'); });
       }
 
       sb.auth.onAuthStateChange(function(event, session) {
-        console.log('[CH] event:', event, session ? session.user.email : null);
         if (event === 'SIGNED_OUT') { authHandled = false; return; }
         if (session && session.user && session.user.email && !authHandled) {
           authHandled = true;
@@ -256,17 +237,14 @@
       });
 
       document.getElementById('signin-btn').addEventListener('click', function() {
-        var btn = document.getElementById('signin-btn');
-        if (btn.disabled) return;
+        if (this.disabled) return;
         authHandled = false;
         setBtnState('Redirecting to Google…');
         document.getElementById('error-box').classList.remove('show');
         sb.auth.signInWithOAuth({
           provider: 'google',
           options: { redirectTo: REDIRECT, queryParams: { hd: 'saadaa.in' } }
-        }).then(function(r) {
-          if (r.error) { resetBtn(); showError('OAuth error: ' + r.error.message); }
-        });
+        }).then(function(r) { if (r.error) { resetBtn(); showError('OAuth error: ' + r.error.message); } });
       });
     }
   </script>
