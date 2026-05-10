@@ -14,35 +14,5 @@
     allowfullscreen="true"
     style="position:fixed;top:0;left:0;width:100%;height:100%;border:none;">
   </iframe>
-
-  <script>
-    // After Supabase OAuth redirect, the access_token lands here in the URL hash.
-    // Parse it and forward into the GAS iframe once it loads.
-    function parseHash() {
-      var hash = window.location.hash.substring(1);
-      if (!hash) return null;
-      var params = {};
-      hash.split('&').forEach(function(part) {
-        var kv = part.split('=');
-        params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
-      });
-      return params.access_token ? params : null;
-    }
-
-    var tokenParams = parseHash();
-
-    var frame = document.getElementById('gas-frame');
-    frame.addEventListener('load', function() {
-      if (tokenParams) {
-        // Forward auth tokens into the GAS iframe
-        frame.contentWindow.postMessage(
-          { type: 'SUPABASE_AUTH_TOKENS', payload: tokenParams },
-          'https://script.google.com'
-        );
-        // Clean the hash from parent URL so refresh doesn't re-send tokens
-        history.replaceState(null, '', window.location.pathname);
-      }
-    });
-  </script>
 </body>
 </html>
