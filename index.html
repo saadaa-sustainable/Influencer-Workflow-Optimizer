@@ -12,8 +12,16 @@
   <script>
     // Instant session check BEFORE paint - prevents login flash
     (function() {
+      if (window.location.search.indexOf('signed_out=1') > -1) return;
+      if (sessionStorage.getItem('ch_logout_pending')) return;
       var cached = sessionStorage.getItem('ch_auth_v3');
-      if (cached) {
+      var hasSupabaseSession = false;
+      try {
+        hasSupabaseSession = Object.keys(localStorage).some(function(key) {
+          return key.indexOf('sb-') === 0 && key.indexOf('-auth-token') > -1;
+        });
+      } catch(e) {}
+      if (cached || hasSupabaseSession) {
         document.documentElement.classList.add('has-session');
       }
     })();
@@ -126,7 +134,20 @@
     var REDIRECT = 'https://saadaa-sustainable.github.io/Influencer-Workflow-Optimizer/';
     var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwCOkaGFOzBAd9Bki58RNk9_qPmmpGrNCJMteknBt3dEcDzeba8LDXP1NR0h7irJFvF/exec';
     var SESSION_KEY = 'ch_auth_v3';
+    var LOGOUT_KEY = 'ch_logout_pending';
     var sb = supabase.createClient(SB_URL, SB_ANON, { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true } });
+
+    function clearAuthState() {
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.setItem(LOGOUT_KEY, '1');
+      try {
+        Object.keys(localStorage).forEach(function(key) {
+          if (key.indexOf('sb-') === 0 && key.indexOf('-auth-token') > -1) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch(e) {}
+    }
 
     // Stats
     fetch(SB_URL + '/rest/v1/rpc/get_login_stats', { method: 'POST', headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' }, body: '{}' })
@@ -197,6 +218,7 @@
     var appLaunched = false;
 
     function safeLaunch(email, role) {
+      sessionStorage.removeItem(LOGOUT_KEY);
       if (appLaunched) return;
       appLaunched = true;
       launchApp(email, role);
@@ -207,7 +229,16 @@
 
     // PRIORITY 1: Check cached session FIRST (instant restore)
     console.log('[CreatorHub] v4 loaded, isOAuthCallback:', isOAuthCallback);
-    if (!isOAuthCallback) {
+    var logoutPending = sessionStorage.getItem(LOGOUT_KEY) === '1' || window.location.search.indexOf('signed_out=1') > -1;
+    if (logoutPending) {
+      clearAuthState();
+      document.documentElement.classList.remove('has-session');
+      if (window.location.search.indexOf('signed_out=1') > -1) {
+        history.replaceState(null, '', window.location.pathname);
+      }
+    }
+
+    if (!isOAuthCallback && !logoutPending) {
       var cached = sessionStorage.getItem(SESSION_KEY);
       console.log('[CreatorHub] cached session:', cached);
       if (cached) {
@@ -224,6 +255,7 @@
 
     // PRIORITY 2: Handle OAuth callback from Supabase
     sb.auth.onAuthStateChange(function(event, session) {
+      if (sessionStorage.getItem(LOGOUT_KEY) === '1') return;
       if (appLaunched) return; // Already launched from cache
       if (event === 'SIGNED_OUT') return;
       if (session && session.user && session.user.email) {
@@ -250,11 +282,15 @@
     window.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'logout') {
         // Clear ALL storage to prevent auto re-login
-        sessionStorage.removeItem(SESSION_KEY);
-        localStorage.removeItem('sb-' + SB_URL.split('//')[1].split('.')[0] + '-auth-token');
+        clearAuthState();
+        appLaunched = false;
+        document.documentElement.classList.remove('has-session');
+        document.getElementById('gas-frame').removeAttribute('src');
+        document.getElementById('gas-frame').style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; z-index: 9999;';
+        document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+        setLoading(false);
         sb.auth.signOut().then(function() {
-          // Force reload to clear any cached state
-          window.location.reload();
+          sessionStorage.removeItem(LOGOUT_KEY);
         });
       }
     });
