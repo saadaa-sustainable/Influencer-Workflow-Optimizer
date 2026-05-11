@@ -64,9 +64,10 @@
       border-radius: 999px; background: #F0EAD6; overflow: hidden;
     }
     .loader-progress::before {
-      content: ''; display: block; width: 42%; height: 100%; border-radius: inherit;
+      content: ''; display: block; width: 100%; height: 100%; border-radius: inherit;
       background: linear-gradient(90deg, #161513, #F0C61E);
-      animation: loaderProgress 1.05s ease-in-out infinite;
+      transform-origin: left center;
+      animation: loaderProgress 1.45s ease-in-out infinite;
     }
     .login-left {
       flex: 0 0 52%; background: #000;
@@ -111,7 +112,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { width: 16px; height: 16px; border: 2px solid #E7E2D2; border-top-color: #161513; border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes loaderRing { 0% { opacity: .8; transform: scale(.85); } 100% { opacity: 0; transform: scale(1.18); } }
-    @keyframes loaderProgress { 0% { transform: translateX(-105%); } 55%,100% { transform: translateX(245%); } }
+    @keyframes loaderProgress { 0% { transform: scaleX(.08); opacity: .65; } 55% { transform: scaleX(.74); opacity: 1; } 100% { transform: scaleX(.96); opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
       .loader-card, .loader-mark, .loader-mark::after, .loader-progress::before, .spinner, .stat-loading {
         animation: none !important;
@@ -172,7 +173,6 @@
     <div class="loader-card">
       <div class="loader-mark">SA</div>
       <div class="loader-row">
-        <span class="spinner"></span>
         <span id="app-loader-label">Opening CreatorHub...</span>
       </div>
       <div class="loader-note">Checking access and loading your workspace</div>
@@ -290,11 +290,32 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
 
     var appLaunched = false;
     var launchedEmail = '';
+    var launchedRole = '';
+    var lastAckTab = '';
+
+    function frameUrl(tabId) {
+      tabId = tabId || tabFromHash() || 'dashboard';
+      return GAS_BASE + '?email=' + encodeURIComponent(launchedEmail) + '&role=' + encodeURIComponent(launchedRole) + '&tab=' + encodeURIComponent(tabId);
+    }
+
+    function reloadFrameForTab(tabId) {
+      var frame = document.getElementById('gas-frame');
+      if (!frame || !launchedEmail) return;
+      tabId = tabId || 'dashboard';
+      showAppLoader('Opening ' + tabId.replace(/-/g, ' ') + '...');
+      frame.onload = function() {
+        hideAppLoader();
+        lastAckTab = tabId;
+      };
+      frame.src = frameUrl(tabId);
+      frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
+    }
 
     function forceLogout(reason) {
       clearAuthState();
       appLaunched = false;
       launchedEmail = '';
+      launchedRole = '';
       document.documentElement.classList.remove('has-session');
       document.documentElement.classList.remove('app-ready');
       hideAppLoader();
@@ -315,6 +336,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       showAppLoader('Opening CreatorHub...');
       appLaunched = true;
       launchedEmail = email;
+      launchedRole = role || '';
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
       if (window.location.hash.indexOf('access_token') > -1 || window.location.search.indexOf('code=') > -1) {
         cleanAuthCallbackUrl();
@@ -331,7 +353,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       loginScreen.style.cssText = 'display: none !important;';
 
       // Set iframe src and show it
-      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role) + '&tab=' + encodeURIComponent(initialTab);
+      frame.src = frameUrl(initialTab);
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
       frame.onload = function() {
         hideAppLoader();
@@ -492,13 +514,22 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
         }
         return;
       }
+      if (e.data && e.data.type === 'tab-ack' && e.data.tabId) {
+        lastAckTab = e.data.tabId;
+        return;
+      }
       if (e.data && e.data.type === 'logout') {
         forceLogout(e.data.reason || '');
       }
     });
 
     window.addEventListener('popstate', function() {
-      sendTabToFrame(tabFromHash() || 'dashboard');
+      var tabId = tabFromHash() || 'dashboard';
+      lastAckTab = '';
+      sendTabToFrame(tabId);
+      window.setTimeout(function() {
+        if (lastAckTab !== tabId) reloadFrameForTab(tabId);
+      }, 250);
     });
 
     window.setInterval(function() {
