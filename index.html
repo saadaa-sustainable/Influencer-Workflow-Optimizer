@@ -42,14 +42,19 @@
     .loader-card {
       width: min(360px, 100%); background: #fff; border: 1px solid #E7E2D2; border-radius: 16px;
       box-shadow: 0 8px 32px rgba(40,36,28,.08); padding: 1.6rem; text-align: center;
+      animation: loaderFadeIn 0.4s ease-out;
     }
+    @keyframes loaderFadeIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes loaderPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes loaderGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(240,198,30,0.4); } 50% { box-shadow: 0 0 0 8px rgba(240,198,30,0); } }
     .loader-mark {
       width: 42px; height: 42px; margin: 0 auto .9rem; border-radius: 10px; background: #F0C61E;
       display: flex; align-items: center; justify-content: center; color: #161513;
       font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      animation: loaderPulse 1.8s ease-in-out infinite, loaderGlow 1.8s ease-in-out infinite;
     }
     .loader-row { display: flex; align-items: center; justify-content: center; gap: .65rem; color: #161513; font-weight: 700; }
-    .loader-note { margin-top: .45rem; color: #8B8578; font-size: .82rem; }
+    .loader-note { margin-top: .45rem; color: #8B8578; font-size: .82rem; animation: shimmer 1.4s ease-in-out infinite; }
     .login-left {
       flex: 0 0 52%; background: #000;
       display: flex; flex-direction: column; justify-content: space-between;
@@ -158,7 +163,7 @@
     var SB_URL = 'https://xynyvbagcudjrzklwnqp.supabase.co';
     var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bnl2YmFnY3VkanJ6a2x3bnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjY4MjcsImV4cCI6MjA5MzkwMjgyN30.1Yuf1xytcp_tGWnkCVEQZU6DixQJgnIZJP2q9P8r8NU';
     var REDIRECT = 'https://saadaa-sustainable.github.io/Influencer-Workflow-Optimizer/';
-var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwQ23NM0XV2UQ6rZVNUqzHS1Eoc_y6Ir-ayViHfryy1W4rSTVgnvNFD2vALXwgoL40z/exec';
+var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz8MD-nvysCam5Xp1PWJbKoLJhN5wSwZTxSe6O4yd_opn9b0myUUcG-V0EVu2X_oXk/exec';
     var SESSION_KEY = 'ch_auth_v3';
     var LOGOUT_KEY = 'ch_logout_pending';
     var sb = supabase.createClient(SB_URL, SB_ANON, { auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true } });
