@@ -113,7 +113,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { width: 16px; height: 16px; border: 2px solid #E7E2D2; border-top-color: #161513; border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes loaderRing { 0% { opacity: .8; transform: scale(.85); } 100% { opacity: 0; transform: scale(1.18); } }
-    @keyframes loaderProgress { 0% { transform: scaleX(.08); opacity: .65; } 55% { transform: scaleX(.74); opacity: 1; } 100% { transform: scaleX(.96); opacity: 1; } }
+    @keyframes loaderProgress { 0% { transform: scaleX(0); opacity: .8; } 85% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
       .loader-card, .loader-mark, .loader-mark::after, .loader-progress::before, .spinner, .stat-loading {
         animation: none !important;
@@ -548,6 +548,12 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
     });
 
     window.addEventListener('popstate', function() {
+      var tabId = tabFromHash() || 'dashboard';
+      lastAckTab = '';
+      sendTabToFrame(tabId, 5);
+    });
+
+    window.addEventListener('hashchange', function() {
       var tabId = tabFromHash() || 'dashboard';
       lastAckTab = '';
       sendTabToFrame(tabId, 5);
