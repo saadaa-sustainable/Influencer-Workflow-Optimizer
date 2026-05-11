@@ -30,9 +30,10 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: #F5F1EC; }
     #gas-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; z-index: 9999; }
-    #login-screen { display: flex; width: 100vw; height: 100vh; z-index: 1; }
+    #login-screen { display: none; width: 100vw; height: 100vh; z-index: 1; }
+    html.login-visible #login-screen { display: flex; }
     /* Hide login if session exists - prevents flash */
-    html.has-session #login-screen { display: none; }
+    html.has-session #login-screen { display: none !important; }
     html.has-session #app-loader { display: flex; }
     html.app-ready #app-loader { display: none; }
     #app-loader {
@@ -207,11 +208,15 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       }
     }
 
-    function sendTabToFrame(tabId) {
+    function sendTabToFrame(tabId, attempts) {
       var frame = document.getElementById('gas-frame');
       tabId = tabId || 'dashboard';
+      attempts = attempts || 1;
       if (frame && frame.contentWindow && tabId) {
         frame.contentWindow.postMessage({ type: 'navigate-tab', tabId: tabId }, '*');
+        if (attempts > 1) {
+          window.setTimeout(function() { sendTabToFrame(tabId, attempts - 1); }, attempts > 3 ? 70 : 140);
+        }
       }
     }
 
@@ -256,6 +261,22 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       var btn = document.getElementById('signin-btn');
       btn.disabled = on;
       document.getElementById('btn-label').textContent = on ? 'Signing in...' : 'Continue with Google';
+    }
+
+    function showLoginScreen() {
+      document.documentElement.classList.remove('has-session');
+      document.documentElement.classList.remove('app-ready');
+      document.documentElement.classList.add('login-visible');
+      hideAppLoader();
+      var loginScreen = document.getElementById('login-screen');
+      if (loginScreen) loginScreen.style.cssText = 'display: flex !important;';
+    }
+
+    function hideLoginScreen() {
+      document.documentElement.classList.add('has-session');
+      document.documentElement.classList.remove('login-visible');
+      var loginScreen = document.getElementById('login-screen');
+      if (loginScreen) loginScreen.style.cssText = 'display: none !important;';
     }
 
     function showAppLoader(message) {
@@ -323,7 +344,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       var frame = document.getElementById('gas-frame');
       frame.removeAttribute('src');
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: none; z-index: 9999;';
-      document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+      showLoginScreen();
       setLoading(false);
       if (reason) showError(reason);
       sb.auth.signOut().then(function() {
@@ -344,24 +365,22 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       var initialTab = tabFromHash() || 'dashboard';
       setTabHistoryBaseline(initialTab);
 
-      var loginScreen = document.getElementById('login-screen');
       var frame = document.getElementById('gas-frame');
 
-      console.log('[CreatorHub] Before - loginScreen display:', loginScreen.style.display, 'frame display:', frame.style.display);
+      console.log('[CreatorHub] Before - frame display:', frame.style.display);
 
-      // Force hide login with !important
-      loginScreen.style.cssText = 'display: none !important;';
+      hideLoginScreen();
 
       // Set iframe src and show it
       frame.src = frameUrl(initialTab);
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
       frame.onload = function() {
         hideAppLoader();
-        sendTabToFrame(tabFromHash());
+        sendTabToFrame(tabFromHash(), 3);
       };
 
-      console.log('[CreatorHub] After - loginScreen display:', loginScreen.style.display, 'frame display:', frame.style.display);
-      console.log('[CreatorHub] loginScreen offsetHeight:', loginScreen.offsetHeight, 'frame offsetHeight:', frame.offsetHeight);
+      console.log('[CreatorHub] After - frame display:', frame.style.display);
+      console.log('[CreatorHub] frame offsetHeight:', frame.offsetHeight);
     }
 
     function verifyAndLaunch(email) {
@@ -378,7 +397,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
         document.documentElement.classList.remove('has-session');
         hideAppLoader();
         document.getElementById('gas-frame').style.display = 'none';
-        document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+        showLoginScreen();
         if (window.location.hash.indexOf('access_token') > -1 || window.location.search.indexOf('code=') > -1) cleanAuthCallbackUrl();
         setLoading(false);
         showError('Connection error: ' + err.message);
@@ -454,7 +473,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
         if (isOAuthCallback) {
           document.documentElement.classList.remove('has-session');
           document.getElementById('gas-frame').style.display = 'none';
-          document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+          showLoginScreen();
           cleanAuthCallbackUrl();
           setLoading(false);
           showError('Could not complete Google sign-in. Please try again.');
@@ -463,15 +482,20 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
           clearAuthState();
           document.documentElement.classList.remove('has-session');
           document.getElementById('gas-frame').style.display = 'none';
-          document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+          showLoginScreen();
           setLoading(false);
           showError('Access revoked. This Google account is no longer authorized for CreatorHub.');
+          return;
+        }
+        if (!isOAuthCallback && !appLaunched) {
+          showLoginScreen();
+          setLoading(false);
         }
       }).catch(function() {
         if (isOAuthCallback) {
           document.documentElement.classList.remove('has-session');
           document.getElementById('gas-frame').style.display = 'none';
-          document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+          showLoginScreen();
           cleanAuthCallbackUrl();
           setLoading(false);
           showError('Could not complete Google sign-in. Please try again.');
@@ -479,7 +503,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
           clearAuthState();
           document.documentElement.classList.remove('has-session');
           document.getElementById('gas-frame').style.display = 'none';
-          document.getElementById('login-screen').style.cssText = 'display: flex !important;';
+          showLoginScreen();
           setLoading(false);
           showError('Access revoked. Please sign in again with an authorized account.');
         }
@@ -526,10 +550,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
     window.addEventListener('popstate', function() {
       var tabId = tabFromHash() || 'dashboard';
       lastAckTab = '';
-      sendTabToFrame(tabId);
-      window.setTimeout(function() {
-        if (lastAckTab !== tabId) reloadFrameForTab(tabId);
-      }, 250);
+      sendTabToFrame(tabId, 5);
     });
 
     window.setInterval(function() {
