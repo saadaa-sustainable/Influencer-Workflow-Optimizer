@@ -33,7 +33,23 @@
     #login-screen { display: flex; width: 100vw; height: 100vh; z-index: 1; }
     /* Hide login if session exists - prevents flash */
     html.has-session #login-screen { display: none; }
-    html.has-session #gas-frame { display: block; }
+    html.has-session #app-loader { display: flex; }
+    html.app-ready #app-loader { display: none; }
+    #app-loader {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: #F5F1EC; z-index: 10000; padding: 1.25rem;
+    }
+    .loader-card {
+      width: min(360px, 100%); background: #fff; border: 1px solid #E7E2D2; border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(40,36,28,.08); padding: 1.6rem; text-align: center;
+    }
+    .loader-mark {
+      width: 42px; height: 42px; margin: 0 auto .9rem; border-radius: 10px; background: #F0C61E;
+      display: flex; align-items: center; justify-content: center; color: #161513;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+    }
+    .loader-row { display: flex; align-items: center; justify-content: center; gap: .65rem; color: #161513; font-weight: 700; }
+    .loader-note { margin-top: .45rem; color: #8B8578; font-size: .82rem; }
     .login-left {
       flex: 0 0 52%; background: #000;
       display: flex; flex-direction: column; justify-content: space-between;
@@ -127,6 +143,16 @@
       </div>
     </div>
   </div>
+  <div id="app-loader" aria-live="polite" aria-busy="true">
+    <div class="loader-card">
+      <div class="loader-mark">SA</div>
+      <div class="loader-row">
+        <span class="spinner"></span>
+        <span id="app-loader-label">Opening CreatorHub...</span>
+      </div>
+      <div class="loader-note">Checking access and loading your workspace</div>
+    </div>
+  </div>
   <iframe id="gas-frame" allowfullscreen="true"></iframe>
   <script>
     var SB_URL = 'https://xynyvbagcudjrzklwnqp.supabase.co';
@@ -197,6 +223,20 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwQ23NM0XV2UQ6rZVNUqzHS1
       document.getElementById('btn-label').textContent = on ? 'Signing in...' : 'Continue with Google';
     }
 
+    function showAppLoader(message) {
+      document.documentElement.classList.remove('app-ready');
+      var loader = document.getElementById('app-loader');
+      var label = document.getElementById('app-loader-label');
+      if (label && message) label.textContent = message;
+      if (loader) loader.style.display = 'flex';
+    }
+
+    function hideAppLoader() {
+      document.documentElement.classList.add('app-ready');
+      var loader = document.getElementById('app-loader');
+      if (loader) loader.style.display = 'none';
+    }
+
     function getAccessRow(email) {
       return fetch(SB_URL + '/rest/v1/rpc/get_user_access', {
         method: 'POST',
@@ -221,6 +261,8 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwQ23NM0XV2UQ6rZVNUqzHS1
       appLaunched = false;
       launchedEmail = '';
       document.documentElement.classList.remove('has-session');
+      document.documentElement.classList.remove('app-ready');
+      hideAppLoader();
       history.replaceState(null, '', window.location.pathname);
       var frame = document.getElementById('gas-frame');
       frame.removeAttribute('src');
@@ -235,6 +277,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwQ23NM0XV2UQ6rZVNUqzHS1
 
     function launchApp(email, role) {
       console.log('[CreatorHub] launchApp called:', email, role);
+      showAppLoader('Opening CreatorHub...');
       appLaunched = true;
       launchedEmail = email;
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ email: email, role: role }));
@@ -253,7 +296,10 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwQ23NM0XV2UQ6rZVNUqzHS1
       // Set iframe src and show it
       frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role) + '&tab=' + encodeURIComponent(tabFromHash() || 'dashboard');
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
-      frame.onload = function() { sendTabToFrame(tabFromHash()); };
+      frame.onload = function() {
+        hideAppLoader();
+        sendTabToFrame(tabFromHash());
+      };
 
       console.log('[CreatorHub] After - loginScreen display:', loginScreen.style.display, 'frame display:', frame.style.display);
       console.log('[CreatorHub] loginScreen offsetHeight:', loginScreen.offsetHeight, 'frame offsetHeight:', frame.offsetHeight);
@@ -271,6 +317,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbwQ23NM0XV2UQ6rZVNUqzHS1
       })
       .catch(function(err) {
         document.documentElement.classList.remove('has-session');
+        hideAppLoader();
         document.getElementById('gas-frame').style.display = 'none';
         document.getElementById('login-screen').style.cssText = 'display: flex !important;';
         if (window.location.hash.indexOf('access_token') > -1 || window.location.search.indexOf('code=') > -1) cleanAuthCallbackUrl();
