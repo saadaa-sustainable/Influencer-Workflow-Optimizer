@@ -91,7 +91,17 @@
     #error-box { display: none; margin-top: .9rem; padding: .75rem 1rem; background: #FDECEA; border: 1px solid #f5c6c2; border-radius: 8px; font-size: .83rem; color: #C0392B; }
     #error-box.show { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes loaderPulse { 0%,100% { transform: scale(.92); opacity: .55; } 50% { transform: scale(1); opacity: 1; } }
     .spinner { width: 16px; height: 16px; border: 2px solid #E7E2D2; border-top-color: #161513; border-radius: 50%; animation: spin .7s linear infinite; }
+    .loader-spinner {
+      width: 22px; height: 22px; border-radius: 999px;
+      background: conic-gradient(#161513 0 90deg, #F0C61E 90deg 190deg, #E7E2D2 190deg 360deg);
+      animation: spin .65s linear infinite; position: relative; flex: 0 0 auto;
+    }
+    .loader-spinner::after {
+      content: ''; position: absolute; inset: 5px; border-radius: inherit; background: #fff;
+      animation: loaderPulse 1.2s ease-in-out infinite;
+    }
     @media (max-width: 767px) {
       #login-screen { flex-direction: column; }
       .login-left { flex: 0 0 auto; padding: 2rem 1.5rem; min-height: 260px; }
@@ -147,7 +157,7 @@
     <div class="loader-card">
       <div class="loader-mark">SA</div>
       <div class="loader-row">
-        <span class="spinner"></span>
+        <span class="loader-spinner"></span>
         <span id="app-loader-label">Opening CreatorHub...</span>
       </div>
       <div class="loader-note">Checking access and loading your workspace</div>
@@ -170,6 +180,15 @@
 
     function tabUrl(tabId) {
       return window.location.pathname + '#tab=' + encodeURIComponent(tabId);
+    }
+
+    function setTabHistoryBaseline(tabId) {
+      tabId = tabId || tabFromHash() || 'dashboard';
+      if (window.location.hash !== '#tab=' + encodeURIComponent(tabId)) {
+        history.replaceState({ tabId: tabId }, '', tabUrl(tabId));
+      } else if (!history.state || history.state.tabId !== tabId) {
+        history.replaceState({ tabId: tabId }, '', tabUrl(tabId));
+      }
     }
 
     function sendTabToFrame(tabId) {
@@ -285,6 +304,8 @@
       if (window.location.hash.indexOf('access_token') > -1 || window.location.search.indexOf('code=') > -1) {
         cleanAuthCallbackUrl();
       }
+      var initialTab = tabFromHash() || 'dashboard';
+      setTabHistoryBaseline(initialTab);
 
       var loginScreen = document.getElementById('login-screen');
       var frame = document.getElementById('gas-frame');
@@ -295,7 +316,7 @@
       loginScreen.style.cssText = 'display: none !important;';
 
       // Set iframe src and show it
-      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role) + '&tab=' + encodeURIComponent(tabFromHash() || 'dashboard');
+      frame.src = GAS_BASE + '?email=' + encodeURIComponent(email) + '&role=' + encodeURIComponent(role) + '&tab=' + encodeURIComponent(initialTab);
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
       frame.onload = function() {
         hideAppLoader();
@@ -456,7 +477,7 @@
       if (e.data && e.data.type === 'tab-change' && e.data.tabId) {
         var nextUrl = tabUrl(e.data.tabId);
         if (window.location.hash !== '#tab=' + encodeURIComponent(e.data.tabId)) {
-          if (e.data.replace) history.replaceState({ tabId: e.data.tabId }, '', nextUrl);
+          if (e.data.replace && history.state && history.state.tabId) history.replaceState({ tabId: e.data.tabId }, '', nextUrl);
           else history.pushState({ tabId: e.data.tabId }, '', nextUrl);
         }
         return;
