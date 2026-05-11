@@ -64,11 +64,10 @@
       height: 3px; margin: 1.15rem auto 0; width: min(240px, 86%);
       border-radius: 999px; background: #F0EAD6; overflow: hidden;
     }
-    .loader-progress::before {
-      content: ''; display: block; width: 100%; height: 100%; border-radius: inherit;
+    .loader-progress span {
+      display: block; width: 0; height: 100%; border-radius: inherit;
       background: linear-gradient(90deg, #161513, #F0C61E);
-      transform-origin: left center;
-      animation: loaderProgress 1.45s ease-in-out infinite;
+      transition: width .22s ease;
     }
     .login-left {
       flex: 0 0 52%; background: #000;
@@ -113,10 +112,10 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { width: 16px; height: 16px; border: 2px solid #E7E2D2; border-top-color: #161513; border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes loaderRing { 0% { opacity: .8; transform: scale(.85); } 100% { opacity: 0; transform: scale(1.18); } }
-    @keyframes loaderProgress { 0% { transform: scaleX(0); opacity: .8; } 85% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
-      .loader-card, .loader-mark, .loader-mark::after, .loader-progress::before, .spinner, .stat-loading {
+      .loader-card, .loader-mark, .loader-mark::after, .loader-progress span, .spinner, .stat-loading {
         animation: none !important;
+        transition: none !important;
       }
     }
     @media (max-width: 767px) {
@@ -177,7 +176,7 @@
         <span id="app-loader-label">Opening CreatorHub...</span>
       </div>
       <div class="loader-note">Checking access and loading your workspace</div>
-      <div class="loader-progress" aria-hidden="true"></div>
+      <div class="loader-progress" aria-hidden="true"><span id="app-loader-progress-fill"></span></div>
     </div>
   </div>
   <iframe id="gas-frame" allowfullscreen="true"></iframe>
@@ -218,6 +217,19 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
           window.setTimeout(function() { sendTabToFrame(tabId, attempts - 1); }, attempts > 3 ? 70 : 140);
         }
       }
+    }
+
+    function navigateFrameToHashTab() {
+      var tabId = tabFromHash() || 'dashboard';
+      var frame = document.getElementById('gas-frame');
+      lastAckTab = '';
+      if (frame && frame.getAttribute('src')) {
+        document.documentElement.classList.add('has-session');
+        document.documentElement.classList.remove('login-visible');
+        hideAppLoader(true);
+        frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
+      }
+      sendTabToFrame(tabId, 10);
     }
 
     function cleanAuthCallbackUrl() {
@@ -263,11 +275,39 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       document.getElementById('btn-label').textContent = on ? 'Signing in...' : 'Continue with Google';
     }
 
+    var loaderProgressTimer = null;
+    var loaderProgressValue = 0;
+
+    function setLoaderProgress(value) {
+      loaderProgressValue = Math.max(0, Math.min(100, value));
+      var fill = document.getElementById('app-loader-progress-fill');
+      if (fill) fill.style.width = loaderProgressValue + '%';
+    }
+
+    function startLoaderProgress() {
+      if (loaderProgressTimer) clearInterval(loaderProgressTimer);
+      setLoaderProgress(0);
+      loaderProgressTimer = setInterval(function() {
+        if (loaderProgressValue >= 92) return;
+        var remaining = 92 - loaderProgressValue;
+        var step = Math.max(1.5, Math.min(8, remaining * 0.18));
+        setLoaderProgress(loaderProgressValue + step);
+      }, 180);
+    }
+
+    function stopLoaderProgress(done) {
+      if (loaderProgressTimer) {
+        clearInterval(loaderProgressTimer);
+        loaderProgressTimer = null;
+      }
+      if (done) setLoaderProgress(100);
+    }
+
     function showLoginScreen() {
       document.documentElement.classList.remove('has-session');
       document.documentElement.classList.remove('app-ready');
       document.documentElement.classList.add('login-visible');
-      hideAppLoader();
+      hideAppLoader(true);
       var loginScreen = document.getElementById('login-screen');
       if (loginScreen) loginScreen.style.cssText = 'display: flex !important;';
     }
@@ -285,12 +325,18 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       var label = document.getElementById('app-loader-label');
       if (label && message) label.textContent = message;
       if (loader) loader.style.display = 'flex';
+      startLoaderProgress();
     }
 
-    function hideAppLoader() {
-      document.documentElement.classList.add('app-ready');
+    function hideAppLoader(immediate) {
+      stopLoaderProgress(true);
       var loader = document.getElementById('app-loader');
-      if (loader) loader.style.display = 'none';
+      var finish = function() {
+        document.documentElement.classList.add('app-ready');
+        if (loader) loader.style.display = 'none';
+      };
+      if (immediate) finish();
+      else window.setTimeout(finish, 140);
     }
 
     function getAccessRow(email) {
@@ -376,7 +422,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
       frame.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; border: none; display: block !important; z-index: 9999;';
       frame.onload = function() {
         hideAppLoader();
-        sendTabToFrame(tabFromHash(), 3);
+        sendTabToFrame(tabFromHash() || initialTab, 3);
       };
 
       console.log('[CreatorHub] After - frame display:', frame.style.display);
@@ -531,6 +577,7 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
     // Listen for logout message from iframe
     window.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'tab-change' && e.data.tabId) {
+        if (appLaunched) hideAppLoader(true);
         var nextUrl = tabUrl(e.data.tabId);
         if (window.location.hash !== '#tab=' + encodeURIComponent(e.data.tabId)) {
           if (e.data.replace) history.replaceState({ tabId: e.data.tabId }, '', nextUrl);
@@ -548,15 +595,17 @@ var GAS_BASE = 'https://script.google.com/macros/s/AKfycbz1wyQ12klFdcxFi_W0soHwb
     });
 
     window.addEventListener('popstate', function() {
-      var tabId = tabFromHash() || 'dashboard';
-      lastAckTab = '';
-      sendTabToFrame(tabId, 5);
+      navigateFrameToHashTab();
     });
 
     window.addEventListener('hashchange', function() {
-      var tabId = tabFromHash() || 'dashboard';
-      lastAckTab = '';
-      sendTabToFrame(tabId, 5);
+      navigateFrameToHashTab();
+    });
+
+    window.addEventListener('pageshow', function() {
+      if (appLaunched || document.getElementById('gas-frame').getAttribute('src')) {
+        navigateFrameToHashTab();
+      }
     });
 
     window.setInterval(function() {
